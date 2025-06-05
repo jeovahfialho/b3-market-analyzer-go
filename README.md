@@ -27,7 +27,7 @@ docker-compose --version
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/yourusername/b3-market-analyzer-go.git
+git clone https://github.com/jeovahfialho/b3-market-analyzer-go.git
 cd b3-market-analyzer-go
 ```
 
@@ -134,7 +134,7 @@ curl http://localhost:8000/health
 # Testar readiness
 curl http://localhost:8000/ready
 
-# Testar uma query (vai retornar 404 pois não há dados ainda)
+# Testar uma query (No início não vai mostrar nada)
 curl http://localhost:8000/api/v1/ticker/PETR4
 ```
 
@@ -409,7 +409,3 @@ Se encontrar problemas:
 2. Consulte os logs: `docker-compose logs`
 3. Abra uma issue no GitHub
 4. Consulte a documentação do Docker
-
----
-
-Desenvolvido com ❤️ para o desafio B3 Market Analyzer
