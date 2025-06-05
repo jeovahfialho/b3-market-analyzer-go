@@ -73,7 +73,7 @@ func main() {
 		CompressedFileSuffix:    ".gz",
 		ProxyHeader:             "X-Forwarded-For",
 		EnableTrustedProxyCheck: true,
-		BodyLimit:               10 * 1024 * 1024, // 10MB
+		BodyLimit:               10 * 1024 * 1024,
 	})
 
 	app.Use(recover.New())

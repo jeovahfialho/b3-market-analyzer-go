@@ -29,13 +29,11 @@ func main() {
 Permite baixar, carregar e consultar dados de negociação.`,
 	}
 
-	// Comando download
 	var downloadCmd = &cobra.Command{
 		Use:   "download",
 		Short: "Baixa arquivos de dados da B3",
 		Long: `Baixa os arquivos de negociação da B3 dos últimos N dias úteis.
-Os arquivos são baixados em formato ZIP e automaticamente extraídos.
-URL base: https://arquivos.b3.com.br/apinegocios/tickercsv`,
+Os arquivos são baixados em formato ZIP e automaticamente extraídos.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			days, _ := cmd.Flags().GetInt("days")
 			outputDir, _ := cmd.Flags().GetString("output")
@@ -48,9 +46,8 @@ URL base: https://arquivos.b3.com.br/apinegocios/tickercsv`,
 	downloadCmd.Flags().IntP("days", "d", 7, "Número de dias úteis para baixar")
 	downloadCmd.Flags().StringP("output", "o", "./data", "Diretório de saída")
 	downloadCmd.Flags().BoolP("extract", "e", true, "Extrair arquivos ZIP automaticamente")
-	downloadCmd.Flags().StringP("start-date", "s", "", "Data inicial (YYYY-MM-DD) - opcional, padrão: alguns dias atrás")
+	downloadCmd.Flags().StringP("start-date", "s", "", "Data inicial (YYYY-MM-DD)")
 
-	// Comando list
 	var listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "Lista arquivos disponíveis para carregar",
@@ -62,19 +59,17 @@ URL base: https://arquivos.b3.com.br/apinegocios/tickercsv`,
 
 	listCmd.Flags().StringP("dir", "d", "./data", "Diretório dos dados")
 
-	// Comando load
 	var loadCmd = &cobra.Command{
 		Use:   "load [files...]",
 		Short: "Carrega arquivos CSV",
 		Long: `Carrega arquivos CSV no banco de dados.
-Aceita múltiplos arquivos e suporta wildcards (ex: data/*.csv)`,
+Aceita múltiplos arquivos e suporta wildcards.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return loadFiles(args)
 		},
 	}
 
-	// Comando query
 	var queryCmd = &cobra.Command{
 		Use:   "query [ticker]",
 		Short: "Consulta agregações de um ticker",
@@ -87,7 +82,6 @@ Aceita múltiplos arquivos e suporta wildcards (ex: data/*.csv)`,
 
 	queryCmd.Flags().StringP("start-date", "s", "", "Data inicial (YYYY-MM-DD)")
 
-	// Comando refresh
 	var refreshCmd = &cobra.Command{
 		Use:   "refresh",
 		Short: "Atualiza materialized views",
@@ -96,7 +90,6 @@ Aceita múltiplos arquivos e suporta wildcards (ex: data/*.csv)`,
 		},
 	}
 
-	// Comando health
 	var healthCmd = &cobra.Command{
 		Use:   "health",
 		Short: "Verifica saúde do sistema",
@@ -105,7 +98,6 @@ Aceita múltiplos arquivos e suporta wildcards (ex: data/*.csv)`,
 		},
 	}
 
-	// Adiciona todos os comandos
 	rootCmd.AddCommand(downloadCmd, listCmd, loadCmd, queryCmd, refreshCmd, healthCmd)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -114,12 +106,10 @@ Aceita múltiplos arquivos e suporta wildcards (ex: data/*.csv)`,
 	}
 }
 
-// downloadB3Files baixa arquivos reais da B3
 func downloadB3Files(days int, outputDir string, extract bool, startDateStr string) error {
-	fmt.Printf("🚀 Baixando cotações históricas da B3 dos últimos %d dias úteis...\n", days)
-	fmt.Println("📍 URL Base: https://bvmf.bmfbovespa.com.br/InstDados/SerHist/")
+	fmt.Printf("🚀 Baixando negócios à vista da B3 dos últimos %d dias úteis...\n", days)
+	fmt.Println("📍 URL Base: https://arquivos.b3.com.br/rapinegocios/tickercsv")
 
-	// Se uma data foi especificada, use ela como base
 	var startDate time.Time
 	if startDateStr != "" {
 		var err error
@@ -129,17 +119,14 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 		}
 		fmt.Printf("📅 Iniciando a partir de: %s\n", startDate.Format("02/01/2006"))
 	} else {
-		// Use data padrão: algumas semanas atrás para ter certeza
-		startDate = time.Now().AddDate(0, 0, -21) // 3 semanas atrás
-		fmt.Printf("📅 Usando data padrão: %s (3 semanas atrás)\n", startDate.Format("02/01/2006"))
+		startDate = time.Now().AddDate(0, 0, -7)
+		fmt.Printf("📅 Usando data padrão: %s (1 semana atrás)\n", startDate.Format("02/01/2006"))
 	}
 
 	ctx := context.Background()
 
-	// Cria downloader com data customizada
 	downloader := NewCustomDownloader("", 4, startDate)
 
-	// Baixa arquivos
 	fmt.Println("\n📥 Iniciando downloads...")
 	zipFiles, err := downloader.DownloadLastDays(ctx, days, outputDir)
 	if err != nil {
@@ -147,12 +134,11 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 	}
 
 	if len(zipFiles) == 0 {
-		return fmt.Errorf("nenhum arquivo foi baixado - tente uma data mais antiga ou verifique a conectividade")
+		return fmt.Errorf("nenhum arquivo foi baixado")
 	}
 
 	fmt.Printf("\n✅ %d arquivos ZIP baixados\n", len(zipFiles))
 
-	// Extrai arquivos se solicitado
 	if extract {
 		fmt.Println("\n📦 Extraindo arquivos...")
 		var csvFiles []string
@@ -168,9 +154,8 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 			fmt.Printf("✅ Extraído: %s (%d arquivos CSV)\n", filepath.Base(zipFile), len(extracted))
 		}
 
-		fmt.Printf("\n🎉 Total: %d arquivos TXT extraídos\n", len(csvFiles))
+		fmt.Printf("\n🎉 Total: %d arquivos CSV extraídos\n", len(csvFiles))
 
-		// Lista alguns arquivos
 		if len(csvFiles) > 0 {
 			fmt.Println("\n📋 Arquivos disponíveis para carregar:")
 			for i, file := range csvFiles {
@@ -184,12 +169,11 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 	}
 
 	fmt.Println("\n✅ Download concluído!")
-	fmt.Println("\n💡 Próximo passo: use 'load data/*.txt' para carregar os dados no banco")
+	fmt.Println("\n💡 Próximo passo: use 'load data/*.csv' para carregar os dados no banco")
 
 	return nil
 }
 
-// unzipFile descompacta um arquivo ZIP
 func unzipFile(zipPath, destDir string) ([]string, error) {
 	var extractedFiles []string
 
@@ -200,42 +184,35 @@ func unzipFile(zipPath, destDir string) ([]string, error) {
 	defer reader.Close()
 
 	for _, file := range reader.File {
-		// Constrói caminho do arquivo
 		path := filepath.Join(destDir, file.Name)
 
-		// Verifica se é diretório
 		if file.FileInfo().IsDir() {
 			os.MkdirAll(path, file.Mode())
 			continue
 		}
 
-		// Cria diretório pai se necessário
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return nil, err
 		}
 
-		// Abre arquivo do ZIP
 		fileReader, err := file.Open()
 		if err != nil {
 			return nil, err
 		}
 		defer fileReader.Close()
 
-		// Cria arquivo de destino
 		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
 			return nil, err
 		}
 		defer targetFile.Close()
 
-		// Copia conteúdo
 		_, err = io.Copy(targetFile, fileReader)
 		if err != nil {
 			return nil, err
 		}
 
-		// Adiciona à lista se for TXT (formato da B3)
-		if strings.HasSuffix(strings.ToLower(file.Name), ".txt") {
+		if strings.HasSuffix(strings.ToLower(file.Name), ".csv") {
 			extractedFiles = append(extractedFiles, path)
 		}
 	}
@@ -243,35 +220,25 @@ func unzipFile(zipPath, destDir string) ([]string, error) {
 	return extractedFiles, nil
 }
 
-// listFiles lista arquivos disponíveis
 func listFiles(dataDir string) error {
 	fmt.Printf("📂 Listando arquivos em %s\n\n", dataDir)
 
-	// Lista arquivos TXT (formato B3)
-	txtFiles, err := filepath.Glob(filepath.Join(dataDir, "*.txt"))
-	if err != nil {
-		return err
-	}
-
-	// Lista arquivos CSV (formato alternativo)
 	csvFiles, err := filepath.Glob(filepath.Join(dataDir, "*.csv"))
 	if err != nil {
 		return err
 	}
 
-	// Lista arquivos ZIP
 	zipFiles, err := filepath.Glob(filepath.Join(dataDir, "*.zip"))
 	if err != nil {
 		return err
 	}
 
-	if len(txtFiles) == 0 && len(csvFiles) == 0 && len(zipFiles) == 0 {
+	if len(csvFiles) == 0 && len(zipFiles) == 0 {
 		fmt.Println("❌ Nenhum arquivo encontrado")
 		fmt.Println("💡 Use 'download' para baixar dados da B3")
 		return nil
 	}
 
-	// Mostra arquivos ZIP
 	if len(zipFiles) > 0 {
 		fmt.Printf("📦 %d arquivos ZIP:\n", len(zipFiles))
 		for _, file := range zipFiles {
@@ -283,23 +250,6 @@ func listFiles(dataDir string) error {
 		fmt.Println()
 	}
 
-	// Mostra arquivos TXT (formato oficial da B3)
-	if len(txtFiles) > 0 {
-		fmt.Printf("📊 %d arquivos TXT (B3):\n", len(txtFiles))
-		totalSize := int64(0)
-		for _, file := range txtFiles {
-			info, _ := os.Stat(file)
-			size := info.Size()
-			totalSize += size
-
-			fmt.Printf("  - %-30s %10s\n",
-				filepath.Base(file),
-				formatBytes(size))
-		}
-		fmt.Printf("\n💾 Tamanho total TXT: %s\n", formatBytes(totalSize))
-	}
-
-	// Mostra arquivos CSV (formato alternativo)
 	if len(csvFiles) > 0 {
 		fmt.Printf("📊 %d arquivos CSV:\n", len(csvFiles))
 		totalSize := int64(0)
@@ -318,7 +268,6 @@ func listFiles(dataDir string) error {
 	return nil
 }
 
-// formatBytes formata tamanho em bytes
 func formatBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
@@ -332,7 +281,6 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// connectDB conecta ao PostgreSQL
 func connectDB(cfg *config.Config) (*pgxpool.Pool, error) {
 	db, err := postgres.NewDB(cfg)
 	if err != nil {
@@ -341,7 +289,6 @@ func connectDB(cfg *config.Config) (*pgxpool.Pool, error) {
 	return db.Pool(), nil
 }
 
-// connectRedis conecta ao Redis
 func connectRedis(cfg *config.Config) *cache.RedisCache {
 	redisCache, err := cache.NewRedisCache(cfg)
 	if err != nil {
@@ -351,12 +298,10 @@ func connectRedis(cfg *config.Config) *cache.RedisCache {
 	return redisCache
 }
 
-// refreshViews atualiza as materialized views
 func refreshViews() error {
 	ctx := context.Background()
 	cfg := config.Load()
 
-	// Conecta ao banco
 	pool, err := connectDB(cfg)
 	if err != nil {
 		return err
@@ -365,7 +310,6 @@ func refreshViews() error {
 
 	fmt.Println("🔄 Atualizando materialized views...")
 
-	// Executa refresh
 	_, err = pool.Exec(ctx, "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_aggregations")
 	if err != nil {
 		return fmt.Errorf("erro ao atualizar views: %w", err)
@@ -375,14 +319,12 @@ func refreshViews() error {
 	return nil
 }
 
-// checkHealth verifica a saúde do sistema
 func checkHealth() error {
 	ctx := context.Background()
 	cfg := config.Load()
 
 	fmt.Println("🏥 Verificando saúde do sistema...\n")
 
-	// Testa PostgreSQL
 	fmt.Print("PostgreSQL: ")
 	pool, err := connectDB(cfg)
 	if err != nil {
@@ -390,7 +332,6 @@ func checkHealth() error {
 	} else {
 		defer pool.Close()
 
-		// Testa query simples
 		var result int
 		err = pool.QueryRow(ctx, "SELECT 1").Scan(&result)
 		if err != nil {
@@ -400,7 +341,6 @@ func checkHealth() error {
 		}
 	}
 
-	// Testa Redis
 	fmt.Print("Redis: ")
 	redisClient := connectRedis(cfg)
 	if redisClient == nil {
@@ -408,7 +348,6 @@ func checkHealth() error {
 	} else {
 		defer redisClient.Close()
 
-		// Testa ping
 		err = redisClient.HealthCheck(ctx)
 		if err != nil {
 			fmt.Printf("❌ Erro: %v\n", err)
@@ -425,23 +364,19 @@ func loadFiles(files []string) error {
 	ctx := context.Background()
 	cfg := config.Load()
 
-	// Conecta ao banco
 	pool, err := connectDB(cfg)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	// Cria parser e loader
 	parser := ingestion.NewParser(cfg.BatchSize, cfg.Workers)
 	loader := ingestion.NewBulkLoader(pool, cfg.BatchSize)
 
-	// Cria worker pool
 	workerPool := ingestion.NewWorkerPool(cfg.Workers, parser, loader)
 	workerPool.Start(ctx)
 	defer workerPool.Stop()
 
-	// Processa arquivos
 	results := make(chan ingestion.JobResult, len(files))
 
 	fmt.Printf("📥 Carregando %d arquivo(s)...\n\n", len(files))
@@ -454,7 +389,6 @@ func loadFiles(files []string) error {
 		workerPool.Submit(job)
 	}
 
-	// Coleta resultados
 	var totalRecords int64
 	for i := 0; i < len(files); i++ {
 		result := <-results
@@ -468,7 +402,6 @@ func loadFiles(files []string) error {
 
 	fmt.Printf("\n📊 Total: %d registros carregados\n", totalRecords)
 
-	// Atualiza views automaticamente após carga
 	fmt.Println("\n🔄 Atualizando agregações...")
 	pool.Exec(ctx, "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_aggregations")
 
@@ -479,17 +412,14 @@ func queryTicker(ticker string, startDateStr string) error {
 	ctx := context.Background()
 	cfg := config.Load()
 
-	// Conecta ao banco
 	pool, err := connectDB(cfg)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	// Cria serviço sem cache (passa nil)
 	aggregationService := service.NewAggregationService(pool, nil, cfg.CacheTTL)
 
-	// Parse data
 	var startDate *time.Time
 	if startDateStr != "" {
 		parsed, err := time.Parse("2006-01-02", startDateStr)
@@ -499,7 +429,6 @@ func queryTicker(ticker string, startDateStr string) error {
 		startDate = &parsed
 	}
 
-	// Busca agregação
 	fmt.Printf("🔍 Buscando dados para %s", ticker)
 	if startDate != nil {
 		fmt.Printf(" desde %s", startDate.Format("02/01/2006"))
@@ -511,7 +440,6 @@ func queryTicker(ticker string, startDateStr string) error {
 		return fmt.Errorf("erro ao buscar agregação: %w", err)
 	}
 
-	// Mostra resultado
 	fmt.Printf("\n📊 Resultados para %s:\n", ticker)
 	fmt.Printf("├─ Maior Preço: R$ %s\n", result.MaxRangeValue.String())
 	fmt.Printf("└─ Maior Volume Diário: %s\n", formatNumber(result.MaxDailyVolume))
@@ -519,16 +447,13 @@ func queryTicker(ticker string, startDateStr string) error {
 	return nil
 }
 
-// formatNumber formata número com separadores de milhares
 func formatNumber(n int64) string {
 	if n == 0 {
 		return "0"
 	}
 
-	// Converte para string
 	str := fmt.Sprintf("%d", n)
 
-	// Adiciona pontos como separadores
 	result := ""
 	for i, char := range str {
 		if i > 0 && (len(str)-i)%3 == 0 {
@@ -540,7 +465,6 @@ func formatNumber(n int64) string {
 	return result
 }
 
-// connectRedisSimple versão alternativa
 func connectRedisSimple(cfg *config.Config) *redis.Client {
 	opt, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
@@ -559,7 +483,6 @@ func connectRedisSimple(cfg *config.Config) *redis.Client {
 	return client
 }
 
-// CustomDownloader com data base customizada
 type CustomDownloader struct {
 	*ingestion.Downloader
 	baseDate time.Time
@@ -602,13 +525,11 @@ func getLastBusinessDaysFrom(days int, startDate time.Time) []time.Time {
 	date := startDate
 
 	for len(businessDays) < days {
-		// Pula finais de semana
 		if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
 			date = date.AddDate(0, 0, -1)
 			continue
 		}
 
-		// Pula feriados brasileiros
 		if isHolidayBR(date) {
 			date = date.AddDate(0, 0, -1)
 			continue
@@ -622,24 +543,19 @@ func getLastBusinessDaysFrom(days int, startDate time.Time) []time.Time {
 }
 
 func isHolidayBR(date time.Time) bool {
-	// Feriados fixos brasileiros 2024-2025
 	holidays := map[string]bool{
-		"01-01": true, // Ano Novo
-		"04-21": true, // Tiradentes
-		"05-01": true, // Dia do Trabalho
-		"09-07": true, // Independência
-		"10-12": true, // Nossa Senhora Aparecida
-		"11-02": true, // Finados
-		"11-15": true, // Proclamação da República
-		"12-25": true, // Natal
-
-		// Feriados móveis 2025
-		"04-18": true, // Sexta-feira Santa
-		"06-19": true, // Corpus Christi
-
-		// Feriados móveis 2024 (para dados históricos)
-		"03-29": true, // Sexta-feira Santa 2024
-		"05-30": true, // Corpus Christi 2024
+		"01-01": true,
+		"04-21": true,
+		"05-01": true,
+		"09-07": true,
+		"10-12": true,
+		"11-02": true,
+		"11-15": true,
+		"12-25": true,
+		"04-18": true,
+		"06-19": true,
+		"03-29": true,
+		"05-30": true,
 	}
 
 	dateStr := date.Format("01-02")
