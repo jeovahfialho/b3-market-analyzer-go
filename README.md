@@ -27,7 +27,7 @@ docker-compose --version
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/yourusername/b3-market-analyzer-go.git
+git clone https://github.com/jeovahfialho/b3-market-analyzer-go.git
 cd b3-market-analyzer-go
 ```
 
