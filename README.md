@@ -134,7 +134,7 @@ curl http://localhost:8000/health
 # Testar readiness
 curl http://localhost:8000/ready
 
-# Testar uma query (vai retornar 404 pois não há dados ainda)
+# Testar uma query (No início não vai mostrar nada)
 curl http://localhost:8000/api/v1/ticker/PETR4
 ```
 
