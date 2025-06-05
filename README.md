@@ -161,7 +161,7 @@ docker-compose exec api sh
 ./b3-analyzer-cli download --days 7
 
 # Carregar os arquivos CSV
-./b3-analyzer-cli load data/*.csv
+./b3-analyzer-cli load data/*.txt
 
 # Sair do container
 exit
@@ -174,7 +174,7 @@ exit
 docker-compose exec api ./b3-analyzer-cli download --days 7
 
 # Carregar dados
-docker-compose exec api ./b3-analyzer-cli load data/*.csv
+docker-compose exec api ./b3-analyzer-cli load data/*.txt
 
 # Verificar dados carregados
 docker-compose exec api ./b3-analyzer-cli query PETR4
