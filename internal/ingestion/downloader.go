@@ -1,4 +1,3 @@
-// internal/ingestion/downloader.go
 package ingestion
 
 import (
@@ -12,44 +11,36 @@ import (
 	"time"
 )
 
-// Downloader baixa arquivos da B3
 type Downloader struct {
 	baseURL    string
 	httpClient *http.Client
 	workers    int
 }
 
-// NewDownloader cria novo downloader
 func NewDownloader(baseURL string, workers int) *Downloader {
 	if baseURL == "" {
-		// URL base correta para arquivos históricos da B3
-		// Os arquivos ficam em: https://bvmf.bmfbovespa.com.br/InstDados/SerHist/
-		baseURL = "https://bvmf.bmfbovespa.com.br/InstDados/SerHist"
+		baseURL = "https://arquivos.b3.com.br/rapinegocios/tickercsv"
 	}
 
 	return &Downloader{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Minute, // Timeout maior para arquivos grandes
+			Timeout: 5 * time.Minute,
 		},
 		workers: workers,
 	}
 }
 
-// DownloadFile baixa um arquivo específico
 func (d *Downloader) DownloadFile(ctx context.Context, date time.Time, outputDir string) (string, error) {
-	// Formato do nome do arquivo B3: COTAHIST_AAAAMMDD.ZIP
-	filename := fmt.Sprintf("COTAHIST_%s.ZIP", date.Format("20060102"))
-	url := fmt.Sprintf("%s/%s", d.baseURL, filename)
+	filename := fmt.Sprintf("%s_NEGOCIOSAVISTA.zip", date.Format("02-01-2006"))
+	url := fmt.Sprintf("%s/%s", d.baseURL, date.Format("2006-01-02"))
 
 	outputPath := filepath.Join(outputDir, filename)
 
-	// Cria diretório se não existir
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", fmt.Errorf("erro ao criar diretório: %w", err)
 	}
 
-	// Verifica se arquivo já existe
 	if _, err := os.Stat(outputPath); err == nil {
 		fmt.Printf("⏭️  Arquivo já existe: %s\n", filename)
 		return outputPath, nil
@@ -57,7 +48,6 @@ func (d *Downloader) DownloadFile(ctx context.Context, date time.Time, outputDir
 
 	fmt.Printf("⬇️  Baixando: %s\n", filename)
 
-	// Faz request
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("erro ao criar request: %w", err)
@@ -73,14 +63,12 @@ func (d *Downloader) DownloadFile(ctx context.Context, date time.Time, outputDir
 		return "", fmt.Errorf("status code: %d para URL: %s", resp.StatusCode, url)
 	}
 
-	// Cria arquivo temporário
 	tempFile := outputPath + ".tmp"
 	file, err := os.Create(tempFile)
 	if err != nil {
 		return "", fmt.Errorf("erro ao criar arquivo: %w", err)
 	}
 
-	// Copia conteúdo com progresso
 	written, err := io.Copy(file, resp.Body)
 	file.Close()
 
@@ -89,7 +77,6 @@ func (d *Downloader) DownloadFile(ctx context.Context, date time.Time, outputDir
 		return "", fmt.Errorf("erro ao salvar arquivo: %w", err)
 	}
 
-	// Renomeia arquivo temporário para final
 	if err := os.Rename(tempFile, outputPath); err != nil {
 		os.Remove(tempFile)
 		return "", fmt.Errorf("erro ao renomear arquivo: %w", err)
@@ -100,7 +87,6 @@ func (d *Downloader) DownloadFile(ctx context.Context, date time.Time, outputDir
 	return outputPath, nil
 }
 
-// DownloadLastDays baixa arquivos dos últimos N dias úteis
 func (d *Downloader) DownloadLastDays(ctx context.Context, days int, outputDir string) ([]string, error) {
 	dates := getLastBusinessDays(days)
 
@@ -108,7 +94,6 @@ func (d *Downloader) DownloadLastDays(ctx context.Context, days int, outputDir s
 	results := make(chan string, len(dates))
 	errors := make(chan error, len(dates))
 
-	// Semáforo para limitar workers
 	sem := make(chan struct{}, d.workers)
 
 	for _, date := range dates {
@@ -116,7 +101,6 @@ func (d *Downloader) DownloadLastDays(ctx context.Context, days int, outputDir s
 		go func(dt time.Time) {
 			defer wg.Done()
 
-			// Adquire semáforo
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
@@ -129,14 +113,12 @@ func (d *Downloader) DownloadLastDays(ctx context.Context, days int, outputDir s
 		}(date)
 	}
 
-	// Aguarda conclusão
 	go func() {
 		wg.Wait()
 		close(results)
 		close(errors)
 	}()
 
-	// Coleta resultados
 	var paths []string
 	var errs []error
 
@@ -171,22 +153,18 @@ func (d *Downloader) DownloadLastDays(ctx context.Context, days int, outputDir s
 	return paths, nil
 }
 
-// getLastBusinessDays retorna últimos dias úteis
 func getLastBusinessDays(days int) []time.Time {
 	var businessDays []time.Time
 	date := time.Now()
 
-	// A B3 disponibiliza arquivos com delay de 2-3 dias, vamos usar margem de segurança
-	date = date.AddDate(0, 0, -3)
+	date = date.AddDate(0, 0, -1)
 
 	for len(businessDays) < days {
-		// Pula finais de semana
 		if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
 			date = date.AddDate(0, 0, -1)
 			continue
 		}
 
-		// Pula feriados principais (você pode expandir esta lista)
 		if isHoliday(date) {
 			date = date.AddDate(0, 0, -1)
 			continue
@@ -199,22 +177,20 @@ func getLastBusinessDays(days int) []time.Time {
 	return businessDays
 }
 
-// isHoliday verifica se é feriado (implementação básica)
 func isHoliday(date time.Time) bool {
-	// Lista de feriados fixos brasileiros 2025
 	holidays := map[string]bool{
-		"01-01": true, // Ano Novo
-		"04-21": true, // Tiradentes
-		"05-01": true, // Dia do Trabalho
-		"09-07": true, // Independência
-		"10-12": true, // Nossa Senhora Aparecida
-		"11-02": true, // Finados
-		"11-15": true, // Proclamação da República
-		"12-25": true, // Natal
-
-		// Feriados móveis 2025 (você deve atualizar esses valores)
-		"04-18": true, // Sexta-feira Santa
-		"06-19": true, // Corpus Christi
+		"01-01": true,
+		"04-21": true,
+		"05-01": true,
+		"09-07": true,
+		"10-12": true,
+		"11-02": true,
+		"11-15": true,
+		"12-25": true,
+		"04-18": true,
+		"06-19": true,
+		"03-29": true,
+		"05-30": true,
 	}
 
 	dateStr := date.Format("01-02")

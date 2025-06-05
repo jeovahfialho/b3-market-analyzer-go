@@ -409,7 +409,3 @@ Se encontrar problemas:
 2. Consulte os logs: `docker-compose logs`
 3. Abra uma issue no GitHub
 4. Consulte a documentação do Docker
-
----
-
-Desenvolvido com ❤️ para o desafio B3 Market Analyzer
