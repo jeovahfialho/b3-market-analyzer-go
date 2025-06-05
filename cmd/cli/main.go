@@ -151,10 +151,10 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 			}
 
 			csvFiles = append(csvFiles, extracted...)
-			fmt.Printf("✅ Extraído: %s (%d arquivos CSV)\n", filepath.Base(zipFile), len(extracted))
+			fmt.Printf("✅ Extraído: %s (%d arquivos TXT)\n", filepath.Base(zipFile), len(extracted))
 		}
 
-		fmt.Printf("\n🎉 Total: %d arquivos CSV extraídos\n", len(csvFiles))
+		fmt.Printf("\n🎉 Total: %d arquivos TXT extraídos\n", len(csvFiles))
 
 		if len(csvFiles) > 0 {
 			fmt.Println("\n📋 Arquivos disponíveis para carregar:")
@@ -169,7 +169,7 @@ func downloadB3Files(days int, outputDir string, extract bool, startDateStr stri
 	}
 
 	fmt.Println("\n✅ Download concluído!")
-	fmt.Println("\n💡 Próximo passo: use 'load data/*.csv' para carregar os dados no banco")
+	fmt.Println("\n💡 Próximo passo: use 'load data/*.txt' para carregar os dados no banco")
 
 	return nil
 }
@@ -212,7 +212,7 @@ func unzipFile(zipPath, destDir string) ([]string, error) {
 			return nil, err
 		}
 
-		if strings.HasSuffix(strings.ToLower(file.Name), ".csv") {
+		if strings.HasSuffix(strings.ToLower(file.Name), ".txt") {
 			extractedFiles = append(extractedFiles, path)
 		}
 	}
@@ -223,7 +223,7 @@ func unzipFile(zipPath, destDir string) ([]string, error) {
 func listFiles(dataDir string) error {
 	fmt.Printf("📂 Listando arquivos em %s\n\n", dataDir)
 
-	csvFiles, err := filepath.Glob(filepath.Join(dataDir, "*.csv"))
+	txtFiles, err := filepath.Glob(filepath.Join(dataDir, "*.txt"))
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func listFiles(dataDir string) error {
 		return err
 	}
 
-	if len(csvFiles) == 0 && len(zipFiles) == 0 {
+	if len(txtFiles) == 0 && len(zipFiles) == 0 {
 		fmt.Println("❌ Nenhum arquivo encontrado")
 		fmt.Println("💡 Use 'download' para baixar dados da B3")
 		return nil
@@ -250,10 +250,10 @@ func listFiles(dataDir string) error {
 		fmt.Println()
 	}
 
-	if len(csvFiles) > 0 {
-		fmt.Printf("📊 %d arquivos CSV:\n", len(csvFiles))
+	if len(txtFiles) > 0 {
+		fmt.Printf("📊 %d arquivos TXT:\n", len(txtFiles))
 		totalSize := int64(0)
-		for _, file := range csvFiles {
+		for _, file := range txtFiles {
 			info, _ := os.Stat(file)
 			size := info.Size()
 			totalSize += size
@@ -262,7 +262,7 @@ func listFiles(dataDir string) error {
 				filepath.Base(file),
 				formatBytes(size))
 		}
-		fmt.Printf("\n💾 Tamanho total CSV: %s\n", formatBytes(totalSize))
+		fmt.Printf("\n💾 Tamanho total TXT: %s\n", formatBytes(totalSize))
 	}
 
 	return nil

@@ -88,9 +88,7 @@ func (p *Parser) ParseFile(ctx context.Context, reader io.Reader) (*ParseResult,
 	return finalResult, nil
 }
 
-func (p *Parser) worker(ctx context.Context, jobs <-chan []string,
-	results chan<- *ParseResult, wg *sync.WaitGroup) {
-
+func (p *Parser) worker(ctx context.Context, jobs <-chan []string, results chan<- *ParseResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	batch := &ParseResult{
@@ -104,7 +102,6 @@ func (p *Parser) worker(ctx context.Context, jobs <-chan []string,
 				results <- batch
 			}
 			return
-
 		case record, ok := <-jobs:
 			if !ok {
 				if len(batch.Trades) > 0 {
@@ -132,27 +129,44 @@ func (p *Parser) worker(ctx context.Context, jobs <-chan []string,
 }
 
 func (p *Parser) parseRecord(record []string) (*domain.Trade, error) {
-	if len(record) < 5 {
-		return nil, fmt.Errorf("registro inválido: %v", record)
+	if len(record) < 11 {
+		return nil, fmt.Errorf("registro inválido, esperado 11 campos, recebido %d", len(record))
 	}
 
-	dataNegocio, err := time.Parse("2006-01-02", record[1])
+	dataNegocio, err := time.Parse("2006-01-02", strings.TrimSpace(record[8]))
 	if err != nil {
-		return nil, fmt.Errorf("data inválida: %w", err)
+		return nil, fmt.Errorf("data negócio inválida: %w", err)
 	}
 
-	horaFechamento, err := time.Parse("15:04:05", record[0])
-	if err != nil {
-		return nil, fmt.Errorf("hora inválida: %w", err)
+	horaFechamentoStr := strings.TrimSpace(record[5])
+
+	var horaFechamento time.Time
+	if horaFechamentoStr != "" {
+		if len(horaFechamentoStr) == 9 {
+			horaFechamento, err = time.Parse("150405000", horaFechamentoStr)
+		} else if len(horaFechamentoStr) == 8 {
+			horaFechamento, err = time.Parse("15040500", horaFechamentoStr)
+		} else if len(horaFechamentoStr) == 6 {
+			horaFechamento, err = time.Parse("150405", horaFechamentoStr)
+		} else {
+			err = fmt.Errorf("formato de hora não reconhecido: %s", horaFechamentoStr)
+		}
+
+		if err != nil {
+			horaFechamento = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+		}
+	} else {
+		horaFechamento = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	precoStr := strings.Replace(record[3], ",", ".", -1)
+	precoStr := strings.TrimSpace(record[3])
+	precoStr = strings.ReplaceAll(precoStr, ",", ".")
 	preco, err := decimal.NewFromString(precoStr)
 	if err != nil {
 		return nil, fmt.Errorf("preço inválido: %w", err)
 	}
 
-	quantidade, err := strconv.ParseInt(record[4], 10, 64)
+	quantidade, err := strconv.ParseInt(strings.TrimSpace(record[4]), 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("quantidade inválida: %w", err)
 	}
@@ -160,7 +174,7 @@ func (p *Parser) parseRecord(record []string) (*domain.Trade, error) {
 	return &domain.Trade{
 		HoraFechamento:      horaFechamento,
 		DataNegocio:         dataNegocio,
-		CodigoInstrumento:   strings.TrimSpace(record[2]),
+		CodigoInstrumento:   strings.TrimSpace(record[1]),
 		PrecoNegocio:        preco,
 		QuantidadeNegociada: quantidade,
 	}, nil

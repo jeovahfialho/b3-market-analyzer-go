@@ -27,7 +27,6 @@ func NewAggregationService(pool *pgxpool.Pool, redisClient *redis.Client, cacheT
 }
 
 func (s *AggregationService) GetTickerAggregation(ctx context.Context, ticker string, startDate *time.Time) (*domain.Aggregation, error) {
-
 	cacheKey := s.generateCacheKey(ticker, startDate)
 
 	cached, err := s.getFromCache(ctx, cacheKey)
@@ -41,7 +40,7 @@ func (s *AggregationService) GetTickerAggregation(ctx context.Context, ticker st
 	}
 
 	if err := s.saveToCache(ctx, cacheKey, aggregation); err != nil {
-
+		// Log do erro de cache, mas não falha a operação
 	}
 
 	return aggregation, nil
@@ -49,19 +48,19 @@ func (s *AggregationService) GetTickerAggregation(ctx context.Context, ticker st
 
 func (s *AggregationService) queryAggregation(ctx context.Context, ticker string, startDate *time.Time) (*domain.Aggregation, error) {
 	query := `
-        WITH ticker_data AS (
-            SELECT 
-                max_price,
-                total_volume
-            FROM daily_aggregations
-            WHERE codigo_instrumento = $1
-            %s
-        )
-        SELECT 
-            COALESCE(MAX(max_price), 0) as max_range_value,
-            COALESCE(MAX(total_volume), 0) as max_daily_volume
-        FROM ticker_data
-    `
+		WITH ticker_data AS (
+			SELECT
+				max_price,
+				total_volume
+			FROM daily_aggregations
+			WHERE codigo_instrumento = $1
+			%s
+		)
+		SELECT
+			COALESCE(MAX(max_price), 0) as max_range_value,
+			COALESCE(MAX(total_volume), 0) as max_daily_volume
+		FROM ticker_data
+	`
 
 	args := []interface{}{ticker}
 	dateFilter := ""
@@ -96,6 +95,9 @@ func (s *AggregationService) generateCacheKey(ticker string, startDate *time.Tim
 }
 
 func (s *AggregationService) getFromCache(ctx context.Context, key string) (*domain.Aggregation, error) {
+	if s.redisClient == nil {
+		return nil, fmt.Errorf("redis not available")
+	}
 
 	val, err := s.redisClient.Get(ctx, key).Result()
 	if err != nil {
@@ -111,6 +113,9 @@ func (s *AggregationService) getFromCache(ctx context.Context, key string) (*dom
 }
 
 func (s *AggregationService) saveToCache(ctx context.Context, key string, aggregation *domain.Aggregation) error {
+	if s.redisClient == nil {
+		return nil
+	}
 
 	data, err := json.Marshal(aggregation)
 	if err != nil {
