@@ -138,10 +138,10 @@ docker-compose exec api sh
 ./b3-analyzer-cli load data/*.txt
 
 # 4. Consultar dados de um ticker
-./b3-analyzer-cli query PETR4
+./b3-analyzer-cli query BBAS3
 
 # 5. Consultar com filtro de data
-./b3-analyzer-cli query PETR4 --start-date 2025-05-20
+./b3-analyzer-cli query BBAS3 --start-date 2025-05-20
 
 # 6. Sair do container
 exit
@@ -157,7 +157,7 @@ docker-compose exec api ./b3-analyzer-cli download --days 7
 docker-compose exec api ./b3-analyzer-cli load data/*.txt
 
 # Verificar dados carregados
-docker-compose exec api ./b3-analyzer-cli query PETR4
+docker-compose exec api ./b3-analyzer-cli query BBAS3
 ```
 
 ## 🔍 Testando com dados reais
@@ -168,14 +168,14 @@ Após carregar os dados:
 
 ```bash
 # Consultar agregações de um ticker
-curl "http://localhost:8000/api/v1/ticker/PETR4/aggregation"
+curl "http://localhost:8000/api/v1/ticker/BBAS3/aggregation"
 
 # Com filtro de data
-curl "http://localhost:8000/api/v1/ticker/PETR4/aggregation?start_date=2025-05-20"
+curl "http://localhost:8000/api/v1/ticker/BBAS3/aggregation?start_date=2025-05-20"
 
 # Resposta esperada:
 {
-  "ticker": "PETR4",
+  "ticker": "BBAS3",
   "max_range_value": 42.50,
   "max_daily_volume": 15000000
 }
@@ -278,10 +278,10 @@ ls -la b3-analyzer-*
 ./b3-analyzer-cli load data/*.txt
 
 # Consultar dados
-./b3-analyzer-cli query PETR4
+./b3-analyzer-cli query BBAS3
 
 # Consultar com filtro de data
-./b3-analyzer-cli query PETR4 --start-date 2025-05-20
+./b3-analyzer-cli query BBAS3 --start-date 2025-05-20
 ```
 
 ### 6. Rodar API (terminal separado)
@@ -304,7 +304,7 @@ source local-env.sh
 curl http://localhost:8000/health
 
 # Teste agregação
-curl "http://localhost:8000/api/v1/ticker/PETR4/aggregation"
+curl "http://localhost:8000/api/v1/ticker/BBAS3/aggregation"
 
 # Swagger JSON
 curl http://localhost:8000/swagger/doc.json
@@ -356,7 +356,7 @@ case "$1" in
     echo "💾 Carregando dados..."
     ./b3-analyzer-cli load data/*.txt
     echo "🔍 Testando query..."
-    ./b3-analyzer-cli query PETR4
+    ./b3-analyzer-cli query BBAS3
     ;;
   
   run-api)
@@ -370,7 +370,7 @@ case "$1" in
     echo "Health check:"
     curl -s http://localhost:8000/health | jq 2>/dev/null || curl -s http://localhost:8000/health
     echo -e "\n\nTeste agregação:"
-    curl -s "http://localhost:8000/api/v1/ticker/PETR4/aggregation" | jq 2>/dev/null || curl -s "http://localhost:8000/api/v1/ticker/PETR4/aggregation"
+    curl -s "http://localhost:8000/api/v1/ticker/BBAS3/aggregation" | jq 2>/dev/null || curl -s "http://localhost:8000/api/v1/ticker/BBAS3/aggregation"
     echo -e "\n\nSwagger JSON:"
     curl -s http://localhost:8000/swagger/doc.json | head -c 100
     echo "..."
@@ -687,14 +687,14 @@ case "$1" in
     cd docker
     docker-compose exec api ./b3-analyzer-cli download --days 7
     docker-compose exec api ./b3-analyzer-cli load data/*.txt
-    docker-compose exec api ./b3-analyzer-cli query PETR4
+    docker-compose exec api ./b3-analyzer-cli query BBAS3
     ;;
   
   test)
     echo "🧪 Testando API..."
     curl -s http://localhost:8000/health
     echo ""
-    curl -s "http://localhost:8000/api/v1/ticker/PETR4/aggregation"
+    curl -s "http://localhost:8000/api/v1/ticker/BBAS3/aggregation"
     ;;
   
   status)
@@ -778,7 +778,7 @@ Se tudo estiver funcionando corretamente, você verá:
 ./docker-helper.sh load-data
 
 # 3. Testar API
-curl "http://localhost:8000/api/v1/ticker/PETR4/aggregation"
+curl "http://localhost:8000/api/v1/ticker/BBAS3/aggregation"
 
 # 4. Acessar Swagger
 # Abrir: http://localhost:8000/swagger/index.html

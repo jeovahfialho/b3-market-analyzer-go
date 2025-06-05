@@ -24,6 +24,12 @@ import (
 	pkglogger "github.com/jeovahfialho/b3-analyzer/pkg/logger"
 )
 
+// @title B3 Market Data Analyzer API
+// @version 1.0
+// @description API para análise de dados do mercado B3
+// @host localhost:8000
+// @BasePath /api/v1
+// @schemes http
 func main() {
 	cfg := config.Load()
 
@@ -43,14 +49,17 @@ func main() {
 		defer cacheService.Close()
 	}
 
+	// Services
 	aggregationService := service.NewAggregationService(db.Pool(), nil, cfg.CacheTTL)
 	tradeService := service.NewTradeService(db.Pool())
 	analysisService := service.NewAnalysisService(db.Pool())
 
+	// Ingestion
 	parser := ingestion.NewParser(cfg.BatchSize, cfg.Workers)
 	loader := ingestion.NewBulkLoader(db.Pool(), cfg.BatchSize)
 	ingestionService := service.NewIngestionService(parser, loader)
 
+	// Handler
 	handler := api.NewHandler(
 		db,
 		cacheService,
@@ -60,6 +69,7 @@ func main() {
 		ingestionService,
 	)
 
+	// Fiber app
 	app := fiber.New(fiber.Config{
 		Prefork:                 false,
 		ServerHeader:            "B3-Analyzer",
@@ -73,9 +83,10 @@ func main() {
 		CompressedFileSuffix:    ".gz",
 		ProxyHeader:             "X-Forwarded-For",
 		EnableTrustedProxyCheck: true,
-		BodyLimit:               10 * 1024 * 1024,
+		BodyLimit:               10 * 1024 * 1024, // 10MB
 	})
 
+	// Middleware
 	app.Use(recover.New())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
@@ -89,8 +100,10 @@ func main() {
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
 
+	// Setup routes
 	api.SetupRoutes(app, handler)
 
+	// Graceful shutdown
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -102,6 +115,7 @@ func main() {
 		}
 	}()
 
+	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.APIHost, cfg.APIPort)
 	log.Printf("Starting server on %s", addr)
 
@@ -130,19 +144,10 @@ func connectPostgres(cfg *config.Config) (*postgres.DB, error) {
 func connectRedis(cfg *config.Config) *cache.RedisCache {
 	redisCache, err := cache.NewRedisCache(cfg)
 	if err != nil {
-		log.Printf("⚠️  Redis não disponível: %v (continuando sem cache)", err)
+		log.Printf("⚠️ Redis não disponível: %v (continuando sem cache)", err)
 		return nil
 	}
 
 	log.Println("✅ Conectado ao Redis")
 	return redisCache
-}
-
-func setupRoutes(app *fiber.App, handler *api.Handler) {
-	app.Get("/health", handler.HealthCheck)
-
-	v1 := app.Group("/api/v1")
-
-	v1.Get("/ticker/:ticker", handler.GetTickerAggregation)
-
 }
