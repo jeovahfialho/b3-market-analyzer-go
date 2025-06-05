@@ -2,63 +2,45 @@
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 CREATE EXTENSION IF NOT EXISTS btree_gin;
 
+-- Remover tabela existente se houver
+DROP TABLE IF EXISTS trades CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS daily_aggregations CASCADE;
+
 -- Tabela principal particionada
 CREATE TABLE trades (
     id BIGSERIAL,
     hora_fechamento TIME NOT NULL,
     data_negocio DATE NOT NULL,
-    codigo_instrumento VARCHAR(12) NOT NULL,
+    codigo_instrumento VARCHAR(20) NOT NULL,
     preco_negocio DECIMAL(10, 2) NOT NULL,
     quantidade_negociada BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id, data_negocio)
 ) PARTITION BY RANGE (data_negocio);
 
--- Função para criar partições automaticamente
-CREATE OR REPLACE FUNCTION create_monthly_partitions()
-RETURNS void AS $
-DECLARE
-    start_date date;
-    end_date date;
-    partition_name text;
-BEGIN
-    FOR i IN 0..11 LOOP
-        start_date := date_trunc('month', CURRENT_DATE - interval '1 month' * i);
-        end_date := start_date + interval '1 month';
-        partition_name := 'trades_' || to_char(start_date, 'YYYY_MM');
-        
-        IF NOT EXISTS (
-            SELECT 1 FROM pg_tables WHERE tablename = partition_name
-        ) THEN
-            EXECUTE format(
-                'CREATE TABLE %I PARTITION OF trades FOR VALUES FROM (%L) TO (%L)',
-                partition_name, start_date, end_date
-            );
-            
-            -- Índices na partição
-            EXECUTE format(
-                'CREATE INDEX %I ON %I USING btree (codigo_instrumento, data_negocio)',
-                partition_name || '_ticker_date_idx',
-                partition_name
-            );
-            
-            -- Índice GIN para queries complexas
-            EXECUTE format(
-                'CREATE INDEX %I ON %I USING gin (codigo_instrumento, data_negocio, preco_negocio)',
-                partition_name || '_gin_idx',
-                partition_name
-            );
-        END IF;
-    END LOOP;
-END;
-$ LANGUAGE plpgsql;
+-- Criar partições manualmente para 2025
+CREATE TABLE trades_2025_05 PARTITION OF trades 
+FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
 
--- Executa criação de partições
-SELECT create_monthly_partitions();
+CREATE TABLE trades_2025_06 PARTITION OF trades 
+FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
+
+CREATE TABLE trades_2025_07 PARTITION OF trades 
+FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
+
+-- Índices nas partições
+CREATE INDEX trades_2025_05_ticker_date_idx ON trades_2025_05 USING btree (codigo_instrumento, data_negocio);
+CREATE INDEX trades_2025_06_ticker_date_idx ON trades_2025_06 USING btree (codigo_instrumento, data_negocio);
+CREATE INDEX trades_2025_07_ticker_date_idx ON trades_2025_07 USING btree (codigo_instrumento, data_negocio);
+
+-- Índices GIN
+CREATE INDEX trades_2025_05_gin_idx ON trades_2025_05 USING gin (codigo_instrumento, data_negocio, preco_negocio);
+CREATE INDEX trades_2025_06_gin_idx ON trades_2025_06 USING gin (codigo_instrumento, data_negocio, preco_negocio);
+CREATE INDEX trades_2025_07_gin_idx ON trades_2025_07 USING gin (codigo_instrumento, data_negocio, preco_negocio);
 
 -- Materialized View para agregações
 CREATE MATERIALIZED VIEW daily_aggregations AS
-SELECT 
+SELECT
     codigo_instrumento,
     data_negocio,
     MAX(preco_negocio) as max_price,
@@ -71,21 +53,10 @@ FROM trades
 GROUP BY codigo_instrumento, data_negocio;
 
 -- Índice único para refresh concorrente
-CREATE UNIQUE INDEX daily_agg_unique_idx 
+CREATE UNIQUE INDEX daily_agg_unique_idx
 ON daily_aggregations(codigo_instrumento, data_negocio);
 
 -- Índices adicionais para performance
 CREATE INDEX daily_agg_ticker_idx ON daily_aggregations(codigo_instrumento);
 CREATE INDEX daily_agg_date_idx ON daily_aggregations(data_negocio);
 CREATE INDEX daily_agg_volume_idx ON daily_aggregations(total_volume DESC);
-
--- Configurações de performance
-ALTER SYSTEM SET shared_buffers = '512MB';
-ALTER SYSTEM SET effective_cache_size = '2GB';
-ALTER SYSTEM SET maintenance_work_mem = '256MB';
-ALTER SYSTEM SET work_mem = '32MB';
-ALTER SYSTEM SET max_worker_processes = 8;
-ALTER SYSTEM SET max_parallel_workers_per_gather = 4;
-ALTER SYSTEM SET max_parallel_workers = 8;
-ALTER SYSTEM SET random_page_cost = 1.1;
-ALTER SYSTEM SET effective_io_concurrency = 200;
